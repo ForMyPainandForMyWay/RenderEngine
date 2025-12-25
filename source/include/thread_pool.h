@@ -20,6 +20,7 @@ public:
 class ThreadPool {
 public:
     static void WorkerThread(ThreadPool *master);
+    void wait() const;
 
     explicit ThreadPool(size_t thread_count = 0);
     ~ThreadPool();
@@ -27,8 +28,10 @@ public:
     void addTask(Task* task);
     Task* getTask();
 
+
 private:
     std::atomic<bool>alive{true};
+    std::atomic<uint32_t>pending_task_count{0};
     std::mutex lock;
     std::vector<std::thread> threads;
     std::list<Task *> tasks;

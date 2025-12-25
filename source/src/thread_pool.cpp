@@ -4,14 +4,27 @@
 
 #include "thread_pool.h"
 
+#include <iostream>
+
+//子线程调度
 void ThreadPool::WorkerThread(ThreadPool *master) {
     while (master->alive) {
-        Task *task = master->getTask();
-        if (task != nullptr) {
+
+        if (Task *task = master->getTask(); task != nullptr) {
+
             task->run();
+            delete task;
+            --master->pending_task_count;
         } else {
             std::this_thread::yield();
         }
+    }
+}
+
+// 主动等待所有任务完成
+void ThreadPool::wait() const {
+    while (this->pending_task_count > 0) {
+        std::this_thread::yield();
     }
 }
 
@@ -25,9 +38,7 @@ ThreadPool::ThreadPool(size_t thread_count) {
 }
 
 ThreadPool::~ThreadPool() {
-    while (!tasks.empty()) {
-        std::this_thread::yield();
-    }
+    wait();
     alive = false;
     for (auto &thread : threads) {
         thread.join();
@@ -36,12 +47,13 @@ ThreadPool::~ThreadPool() {
 }
 
 void ThreadPool::addTask(Task *task) {
-    std::lock_guard<std::mutex> guard(lock);
+    std::lock_guard guard(lock);
     tasks.push_back(task);
+    ++this->pending_task_count;
 }
 
 Task* ThreadPool::getTask() {
-    std::lock_guard<std::mutex> guard(lock);
+    std::lock_guard guard(lock);
     if (tasks.empty()) {
         return nullptr;
     }
